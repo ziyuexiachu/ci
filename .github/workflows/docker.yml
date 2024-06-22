@@ -23,12 +23,13 @@ jobs:
       id-token: write
 
     steps:
-      - name: 打印issue number
+      - name: 打印issue评论信息
         run: |
           echo "issue number :${{ github.event.issue.number }}"
+          echo "issue 作者 :${{ github.event.comment.user.login }}"
 
-      - name: 过滤issue id
-        if: github.event.issue.number != 1
+      - name: 过滤issue评论
+        if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
         run: exit 1
 
       - name: 分支白名单
