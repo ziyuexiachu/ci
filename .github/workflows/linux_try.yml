@@ -1,0 +1,238 @@
+name: LinuxTry
+
+on:
+  issue_comment:
+    types: [created]  # 监听 issue 评论创建事件
+
+env:
+  RELEASE: OFF
+  BRANCH: ${{ github.event.comment.body }}
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: 打印issue number
+        run: |
+          echo "issue number :${{ github.event.issue.number }}"
+
+      - name: 过滤issue id
+        if: github.event.issue.number != 1
+        run: exit 1
+
+      - name: 分支白名单
+        run: |
+          WHITELIST=("feature/transcode" "feature/1078" "feature/all" "feature/ts" "feature/codecs")
+          # 判断提交消息是否在白名单中
+          if [[ " ${WHITELIST[@]} " =~ " ${{ env.BRANCH }} " ]]; then
+            echo "分支白名单匹配成功: ${{ env.BRANCH }}"
+          else
+            echo "分支白名单匹配失败: ${{ env.BRANCH }}, 中断编译!"
+            exit 1
+          fi
+
+      - name: 下载源码
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/zlmediakit-promax
+          fetch-depth: 1
+          ref: ${{ env.BRANCH }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: .
+
+      - name: 获取git hash
+        run: |
+          echo "HASH=$(git log -1 --format='%H')" >> $GITHUB_ENV
+
+      - name: 查询是否是试用版本
+        run: |
+          if grep -q "RELEASE_VERSION" CMakeLists.txt; then
+            echo "存在试用版本开关"
+          else
+            echo "试用版本开关不存在, 中断编译!"
+            exit 1
+          fi
+
+      - name: 下载submodule源码
+        run: mv -f .gitmodules_github .gitmodules && git submodule sync && git submodule update --init
+
+      - name: 下载 SRTP
+        uses: actions/checkout@v2
+        with:
+          repository: cisco/libsrtp
+          fetch-depth: 1
+          ref: v2.3.0
+          path: 3rdpart/libsrtp
+
+      - name: 下载 openssl
+        uses: actions/checkout@v2
+        with:
+          repository: openssl/openssl
+          fetch-depth: 1
+          ref: OpenSSL_1_1_1
+          path: 3rdpart/openssl
+
+      - name: 下载 usrsctp
+        uses: actions/checkout@v2
+        with:
+          repository: sctplab/usrsctp
+          fetch-depth: 1
+          ref: 0.9.5.0
+          path: 3rdpart/usrsctp
+
+      - name: 下载 ffmpeg
+        uses: actions/checkout@v2
+        with:
+          repository: FFmpeg/FFmpeg
+          fetch-depth: 1
+          ref: release/6.1
+          path: 3rdpart/ffmpeg
+
+
+      - name: 下载 x264
+        uses: actions/checkout@v2
+        with:
+          repository: mirror/x264
+          fetch-depth: 1
+          ref: stable
+          path: 3rdpart/x264
+
+      - name: 下载 x265
+        uses: actions/checkout@v2
+        with:
+          repository: videolan/x265
+          fetch-depth: 1
+          ref: 3.4
+          path: 3rdpart/x265
+
+      - name: 启动 Docker 容器, 在Docker 容器中执行脚本
+        run: |
+          docker pull centos:7 
+          docker run -e RELEASE=${{ env.RELEASE }} -v $(pwd):/root -w /root --rm centos:7 sh -c "
+            set -x
+            mkdir -p /root/install
+          
+            yum install epel-release -y
+            rpm --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
+            rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-1.el7.nux.noarch.rpm
+          
+            yum install -y git wget gcc gcc-c++ make
+          
+            wget https://www.nasm.us/pub/nasm/releasebuilds/2.13/linux/nasm-2.13-0.fc24.x86_64.rpm
+            rpm -i nasm-2.13-0.fc24.x86_64.rpm
+          
+            wget https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-x86_64.tar.gz
+            tar -xzf cmake-3.26.4-linux-x86_64.tar.gz
+            mv cmake-3.26.4-linux-x86_64 /usr/local/cmake-3.26.4
+            ln -s /usr/local/cmake-3.26.4/bin/* /usr/local/bin/
+          
+            cd 3rdpart/x265/source
+            mkdir build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
+            make -j $(nproc)
+            make install
+            cd ../../../../
+          
+            cd 3rdpart/x264
+            ./configure --prefix=/root/install --enable-static
+            make -j $(nproc)
+            make install
+            cd ../../
+          
+            cd 3rdpart/openssl
+           ./Configure linux-x86_64 no-shared --prefix=/root/install
+            make -j $(nproc)
+            make install
+            cd ../../
+          
+            cd 3rdpart/ffmpeg
+            PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --prefix=/root/install \
+              --extra-cflags='-I/root/install/include' \
+              --extra-ldflags='-L/root/install/lib -ldl -pthread' 
+            make -j $(nproc)
+            make install
+            cd ../../
+          
+            cd 3rdpart/usrsctp
+            mkdir build
+            cd build
+            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+            make -j $(nproc)
+            make install
+            cd ../../../
+          
+            cd 3rdpart/libsrtp && ./configure --enable-openssl  --with-openssl-dir=/root/install && make -j $(nproc) && make install
+            cd ../../
+          
+            mkdir -p build
+            cd build 
+            cmake .. \
+             -DOPENSSL_ROOT_DIR=/root/install \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DRELEASE_VERSION=${{ env.RELEASE }} \
+             -DENABLE_WEBRTC=ON \
+             -DENABLE_FFMPEG=ON \
+             -DENABLE_TESTS=OFF \
+             -DENABLE_API=OFF \
+             -DFFMPEG_PATH_ROOT=/root/install \
+             -DCMAKE_CXX_FLAGS="-L/root/install/lib -I/root/install/install -lx265 -ldl -pthread"
+          
+            make -j $(nproc)
+           
+            # 整理二进制文件
+            cd ..
+            rm -rf release/linux/Release/*.a
+            cp -r /root/install release/linux/
+          "
+
+      - name: 上传ffmpeg日志
+        id: upload_ffmpeg_log
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg_build_log.txt
+          path: 3rdpart/ffmpeg/ffbuild/config.log
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: 设置环境变量
+        run: |
+          echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
+          echo "DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: 打包二进制
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: issue评论
+        if: github.event_name != 'pull_request' && github.ref != 'refs/heads/feature/test'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SELF_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: 1,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '- 下载地址: [${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}](${{ steps.upload.outputs.artifact-url }})\n'
+                + '- ffmpeg编译日志: [ffbuild/config_${{ env.DATE }}](${{ steps.upload_ffmpeg_log.outputs.artifact-url }})\n'
+                + '- 分支: ${{ env.BRANCH }}\n' 
+                + '- git hash: ${{ env.HASH }} \n' 
+                + '- 编译日期: ${{ env.DATE }}\n' 
+                + '- 编译记录: [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n'
+                + '- 打包ci名: ${{ github.workflow }}\n'
+                + '- 开启特性: openssl/webrtc/datachannel/ffmpeg\n'
+                + '- 说明: 本二进制在centos7(x64)上编译，请确保您的机器系统不低于此版本\n' 
+            })
