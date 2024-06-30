@@ -207,7 +207,7 @@ jobs:
           release_info+="- 打包ci名: ${{ github.workflow }}\n"
           release_info+="- 开启特性: openssl/webrtc/datachannel/ffmpeg\n"
           release_info+="- 说明: 本二进制在centos7(x64)上编译，请确保您的机器系统不低于此版本\n"
-          echo -e "$release_info" >> release/linux/release.txt
+          echo -e "$release_info" >> release.txt
 
       - name: 创建 Release
         id: create_release
@@ -221,7 +221,7 @@ jobs:
           commitish: 1ac4a74335be6f1c0c444099d09296dbc548ff57
           prerelease: false
           owner: ziyuexiachu
-          body_path:  release/linux/release.txt
+          body_path: release.txt
           repo: zlmpro-release
 
       - name: 上传文件到 Release
