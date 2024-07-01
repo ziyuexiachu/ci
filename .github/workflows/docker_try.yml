@@ -33,13 +33,7 @@ jobs:
 
       - name: 获取分支和ci名
         run: |
-          input_string=$(cat << EOF
-          ${{ github.event.comment.body }}
-          EOF
-          )
-
-          # Replace newline characters with null character
-          input_string=$(echo "$input_string" | tr '\n' '\0')
+          input_string=$(echo "${{ github.event.comment.body }}" | tr '\n' '\0')
 
           # Split into lines and trim each line
           while IFS= read -r -d '' line; do
