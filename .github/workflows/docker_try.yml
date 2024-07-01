@@ -38,7 +38,7 @@ jobs:
           input_string="${{ github.event.comment.body }}"
           
           # Split into lines and trim each line
-          IFS=$' ' read -d '' -r -a lines <<< "$(echo -e "$input_string")"
+          IFS=' ' read -r -a lines <<< "$input_string"
           
           for (( i=0; i<${#lines[@]}; i++ )); do
             trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
@@ -47,10 +47,10 @@ jobs:
           
           for (( i=0; i<${#lines[@]}; i++ )); do
             if [ "$i" -eq 0 ]; then
-              echo "分支：${lines[i]}"
+              echo "分支: ${lines[i]}"
               echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
             elif [ "$i" -eq 1 ]; then
-              echo "ci名：${lines[i]}"
+              echo "ci名: ${lines[i]}"
               if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
                 echo "ci不匹配"
                 exit 1
