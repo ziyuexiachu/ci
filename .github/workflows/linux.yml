@@ -29,11 +29,10 @@ jobs:
 
       - name: 获取分支和ci名
         run: |
-          # Store github.event.comment.body in a temporary file
-          echo "${{ github.event.comment.body }}" > temp_comment.txt
-          
-          # Read the content of the file and replace newlines with spaces
-          input_string=$(cat temp_comment.txt | tr '\n' ' ')
+          input_string=$(cat << EOF
+          ${{ github.event.comment.body }}
+          EOF
+          )
 
           # Replace newline characters with null character
           input_string=$(echo "$input_string" | tr '\n' '\0')
