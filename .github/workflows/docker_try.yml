@@ -34,6 +34,7 @@ jobs:
       - name: 获取分支和ci名
         run: |
           input_string="${{ github.event.comment.body }}"
+          input_string=$(echo "$input_string" | tr '\n' ' ')
 
           # Replace newline characters with null character
           input_string=$(echo "$input_string" | tr '\n' '\0')
