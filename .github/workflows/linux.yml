@@ -65,6 +65,16 @@ jobs:
             exit 1
           fi
 
+      - name: 设置是否开启ffmpeg的环境变量
+        run: |
+          WHITELIST=("feature/transcode" "feature/all")
+          # 判断提交消息是否在白名单中
+          if [[ " ${WHITELIST[@]} " =~ " ${{ env.BRANCH }} " ]]; then
+            echo "ENABLE_FFMPEG=ON" >> $GITHUB_ENV
+          else
+            echo "ENABLE_FFMPEG=OFF" >> $GITHUB_ENV
+          fi
+
       - name: 下载源码
         uses: actions/checkout@v2
         with:
@@ -115,6 +125,7 @@ jobs:
           path: 3rdpart/usrsctp
 
       - name: 下载 ffmpeg
+        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
         uses: actions/checkout@v2
         with:
           repository: FFmpeg/FFmpeg
@@ -124,6 +135,7 @@ jobs:
 
 
       - name: 下载 x264
+        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
         uses: actions/checkout@v2
         with:
           repository: mirror/x264
@@ -132,6 +144,7 @@ jobs:
           path: 3rdpart/x264
 
       - name: 下载 x265
+        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
         uses: actions/checkout@v2
         with:
           repository: videolan/x265
@@ -142,7 +155,7 @@ jobs:
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
-          docker run -e RELEASE=${{ env.RELEASE }} -v $(pwd):/root -w /root --rm centos:7 sh -c "
+          docker run -e RELEASE=${{ env.RELEASE }} -e ENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -v $(pwd):/root -w /root --rm centos:7 sh -c "
             #!/bin/bash
             set -x
           
@@ -181,34 +194,36 @@ jobs:
             tar -xzf cmake-3.26.4-linux-x86_64.tar.gz
             mv cmake-3.26.4-linux-x86_64 /usr/local/cmake-3.26.4
             ln -s /usr/local/cmake-3.26.4/bin/* /usr/local/bin/
-          
-            cd 3rdpart/x265/source
-            mkdir build
-            cd build
-            cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
-            make -j $(nproc)
-            make install
-            cd ../../../../
-          
-            cd 3rdpart/x264
-            ./configure --prefix=/root/install --enable-static
-            make -j $(nproc)
-            make install
-            cd ../../
-          
-            cd 3rdpart/openssl
-            ./Configure linux-x86_64 no-shared --prefix=/root/install
-            make -j $(nproc)
-            make install
-            cd ../../
-          
-            cd 3rdpart/ffmpeg
-            PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --prefix=/root/install \
-            --extra-cflags='-I/root/install/include' \
-            --extra-ldflags='-L/root/install/lib -ldl -pthread'
-            make -j $(nproc)
-            make install
-            cd ../../
+            
+            if [ "${{ env.ENABLE_FFMPEG }}" -eq "ON" ]; then
+              cd 3rdpart/x265/source
+              mkdir build
+              cd build
+              cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
+              make -j $(nproc)
+              make install
+              cd ../../../../
+            
+              cd 3rdpart/x264
+              ./configure --prefix=/root/install --enable-static
+              make -j $(nproc)
+              make install
+              cd ../../
+            
+              cd 3rdpart/openssl
+              ./Configure linux-x86_64 no-shared --prefix=/root/install
+              make -j $(nproc)
+              make install
+              cd ../../
+            
+              cd 3rdpart/ffmpeg
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --prefix=/root/install \
+              --extra-cflags='-I/root/install/include' \
+              --extra-ldflags='-L/root/install/lib -ldl -pthread'
+              make -j $(nproc)
+              make install
+              cd ../../
+            fi
           
             cd 3rdpart/usrsctp
             mkdir build
@@ -228,7 +243,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DRELEASE_VERSION=${{ env.RELEASE }} \
             -DENABLE_WEBRTC=ON \
-            -DENABLE_FFMPEG=ON \
+            -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
             -DENABLE_TESTS=OFF \
             -DENABLE_API=OFF
           
