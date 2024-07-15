@@ -125,7 +125,7 @@ jobs:
           path: 3rdpart/usrsctp
 
       - name: 下载 ffmpeg
-        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: FFmpeg/FFmpeg
@@ -135,7 +135,7 @@ jobs:
 
 
       - name: 下载 x264
-        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: mirror/x264
@@ -144,7 +144,7 @@ jobs:
           path: 3rdpart/x264
 
       - name: 下载 x265
-        if: ${{ env.ENABLE_FFMPEG }} == 'ON'
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: videolan/x265
