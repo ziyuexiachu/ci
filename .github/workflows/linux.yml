@@ -195,7 +195,13 @@ jobs:
             mv cmake-3.26.4-linux-x86_64 /usr/local/cmake-3.26.4
             ln -s /usr/local/cmake-3.26.4/bin/* /usr/local/bin/
             
-            if [ "${{ env.ENABLE_FFMPEG }}" -eq "ON" ]; then
+            cd 3rdpart/openssl
+            ./Configure linux-x86_64 no-shared --prefix=/root/install
+            make -j $(nproc)
+            make install
+            cd ../../
+          
+            if [ "$ENABLE_FFMPEG" = "ON" ]; then
               cd 3rdpart/x265/source
               mkdir build
               cd build
@@ -206,12 +212,6 @@ jobs:
             
               cd 3rdpart/x264
               ./configure --prefix=/root/install --enable-static
-              make -j $(nproc)
-              make install
-              cd ../../
-            
-              cd 3rdpart/openssl
-              ./Configure linux-x86_64 no-shared --prefix=/root/install
               make -j $(nproc)
               make install
               cd ../../
