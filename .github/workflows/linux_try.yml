@@ -255,15 +255,6 @@ jobs:
             cp -r /root/install release/linux/
           "
 
-      - name: 上传ffmpeg日志
-        id: upload_ffmpeg_log
-        uses: actions/upload-artifact@v4
-        with:
-          name: ffmpeg_build_log.txt
-          path: 3rdpart/ffmpeg/ffbuild/config.log
-          if-no-files-found: error
-          retention-days: 90
-
       - name: 设置环境变量
         run: |
           echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
@@ -289,7 +280,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: '- 下载地址: [${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}](${{ steps.upload.outputs.artifact-url }})\n'
-                + '- ffmpeg编译日志: [ffbuild/config_${{ env.DATE }}](${{ steps.upload_ffmpeg_log.outputs.artifact-url }})\n'
                 + '- 分支: ${{ env.BRANCH }}\n' 
                 + '- git hash: ${{ env.HASH }} \n' 
                 + '- 编译日期: ${{ env.DATE }}\n' 
