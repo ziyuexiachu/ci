@@ -10,7 +10,6 @@ env:
   USER_NAME: zlmediakitpro
   REPO: zlmediakit-pro
   RELEASE: OFF
-  BRANCH: ${{ github.event.comment.body }}
 
 jobs:
   build:
@@ -31,6 +30,33 @@ jobs:
       - name: 过滤issue评论
         if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
         run: exit 1
+
+      - name: 获取分支和ci名
+        run: |
+          #!/bin/bash
+          set -x
+          input_string="${{ github.event.comment.body }}"
+          
+          # Split into lines and trim each line
+          IFS=' ' read -r -a lines <<< "$input_string"
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+            lines[i]="$trimmed_line"
+          done
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            if [ "$i" -eq 0 ]; then
+              echo "分支: ${lines[i]}"
+              echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
+            elif [ "$i" -eq 1 ]; then
+              echo "ci名: ${lines[i]}"
+              if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
+                echo "ci不匹配"
+                exit 1
+              fi
+            fi
+          done
 
       - name: 分支白名单
         run: |

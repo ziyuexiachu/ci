@@ -6,7 +6,6 @@ on:
 
 env:
   RELEASE: OFF
-  BRANCH: ${{ github.event.comment.body }}
 
 jobs:
   build:
@@ -28,6 +27,33 @@ jobs:
         if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
         run: exit 1
 
+      - name: 获取分支和ci名
+        run: |
+          #!/bin/bash
+          set -x
+          input_string="${{ github.event.comment.body }}"
+          
+          # Split into lines and trim each line
+          IFS=' ' read -r -a lines <<< "$input_string"
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+            lines[i]="$trimmed_line"
+          done
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            if [ "$i" -eq 0 ]; then
+              echo "分支: ${lines[i]}"
+              echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
+            elif [ "$i" -eq 1 ]; then
+              echo "ci名: ${lines[i]}"
+              if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
+                echo "ci不匹配"
+                exit 1
+              fi
+            fi
+          done
+
       - name: 分支白名单
         run: |
           WHITELIST=("feature/transcode" "feature/1078" "feature/all" "feature/ts" "feature/codecs")
@@ -37,6 +63,16 @@ jobs:
           else
             echo "分支白名单匹配失败: ${{ env.BRANCH }}, 中断编译!"
             exit 1
+          fi
+
+      - name: 设置是否开启ffmpeg的环境变量
+        run: |
+          WHITELIST=("feature/transcode" "feature/all")
+          # 判断提交消息是否在白名单中
+          if [[ " ${WHITELIST[@]} " =~ " ${{ env.BRANCH }} " ]]; then
+            echo "ENABLE_FFMPEG=ON" >> $GITHUB_ENV
+          else
+            echo "ENABLE_FFMPEG=OFF" >> $GITHUB_ENV
           fi
 
       - name: 下载源码
@@ -89,6 +125,7 @@ jobs:
           path: 3rdpart/usrsctp
 
       - name: 下载 ffmpeg
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: FFmpeg/FFmpeg
@@ -98,6 +135,7 @@ jobs:
 
 
       - name: 下载 x264
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: mirror/x264
@@ -106,6 +144,7 @@ jobs:
           path: 3rdpart/x264
 
       - name: 下载 x265
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
         with:
           repository: videolan/x265
@@ -116,13 +155,35 @@ jobs:
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
-          docker run -e RELEASE=${{ env.RELEASE }} -v $(pwd):/root -w /root --rm centos:7 sh -c "
+          docker run -e RELEASE=${{ env.RELEASE }} -e ENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -v $(pwd):/root -w /root --rm centos:7 sh -c "
+            #!/bin/bash
             set -x
-            mkdir -p /root/install
           
-            yum install epel-release -y
-            rpm --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
-            rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-1.el7.nux.noarch.rpm
+            # Backup original CentOS-Base.repo file
+            cp /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+          
+            # Define new repository configuration
+            cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
+          [base]
+          name=CentOS-7 - Base - mirrors.aliyun.com
+          baseurl=http://mirrors.aliyun.com/centos/7/os/x86_64/
+          gpgcheck=1
+          gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+        
+          [updates]
+          name=CentOS-7 - Updates - mirrors.aliyun.com
+          baseurl=http://mirrors.aliyun.com/centos/7/updates/x86_64/
+          gpgcheck=1
+          gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+          EOF
+          
+            # Clean yum cache and recreate it
+            yum clean all
+            yum makecache
+          
+            echo \"CentOS 7 软件源已成功切换\"
+          
+            mkdir -p /root/install
           
             yum install -y git wget gcc gcc-c++ make
           
@@ -133,34 +194,36 @@ jobs:
             tar -xzf cmake-3.26.4-linux-x86_64.tar.gz
             mv cmake-3.26.4-linux-x86_64 /usr/local/cmake-3.26.4
             ln -s /usr/local/cmake-3.26.4/bin/* /usr/local/bin/
-          
-            cd 3rdpart/x265/source
-            mkdir build
-            cd build
-            cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
-            make -j $(nproc)
-            make install
-            cd ../../../../
-          
-            cd 3rdpart/x264
-            ./configure --prefix=/root/install --enable-static
-            make -j $(nproc)
-            make install
-            cd ../../
-          
+            
             cd 3rdpart/openssl
-           ./Configure linux-x86_64 no-shared --prefix=/root/install
+            ./Configure linux-x86_64 no-shared --prefix=/root/install
             make -j $(nproc)
             make install
             cd ../../
           
-            cd 3rdpart/ffmpeg
-            PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --prefix=/root/install \
+            if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              cd 3rdpart/x265/source
+              mkdir build
+              cd build
+              cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
+              make -j $(nproc)
+              make install
+              cd ../../../../
+            
+              cd 3rdpart/x264
+              ./configure --prefix=/root/install --enable-static
+              make -j $(nproc)
+              make install
+              cd ../../
+            
+              cd 3rdpart/ffmpeg
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --prefix=/root/install \
               --extra-cflags='-I/root/install/include' \
-              --extra-ldflags='-L/root/install/lib -ldl -pthread' 
-            make -j $(nproc)
-            make install
-            cd ../../
+              --extra-ldflags='-L/root/install/lib -ldl -pthread'
+              make -j $(nproc)
+              make install
+              cd ../../
+            fi
           
             cd 3rdpart/usrsctp
             mkdir build
@@ -174,31 +237,23 @@ jobs:
             cd ../../
           
             mkdir -p build
-            cd build 
+            cd build
             PKG_CONFIG_PATH=/root/install/lib/pkgconfig cmake .. \
-             -DOPENSSL_ROOT_DIR=/root/install \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DRELEASE_VERSION=${{ env.RELEASE }} \
-             -DENABLE_WEBRTC=ON \
-             -DENABLE_FFMPEG=ON \
-             -DENABLE_TESTS=OFF \
-             -DENABLE_API=OFF 
+            -DOPENSSL_ROOT_DIR=/root/install \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRELEASE_VERSION=${{ env.RELEASE }} \
+            -DENABLE_WEBRTC=ON \
+            -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_API=OFF \
+            -DCMAKE_CXX_FLAGS="-ldl"
           
             make -j $(nproc)
-           
+          
             cd ..
             rm -rf release/linux/Release/*.a
             cp -r /root/install release/linux/
           "
-
-      - name: 上传ffmpeg日志
-        id: upload_ffmpeg_log
-        uses: actions/upload-artifact@v4
-        with:
-          name: ffmpeg_build_log.txt
-          path: 3rdpart/ffmpeg/ffbuild/config.log
-          if-no-files-found: error
-          retention-days: 90
 
       - name: 设置环境变量
         run: |
@@ -221,11 +276,10 @@ jobs:
           github-token: ${{ secrets.SELF_TOKEN }}
           script: |
             github.rest.issues.createComment({
-              issue_number: 1,
+              issue_number: 2,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: '- 下载地址: [${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}](${{ steps.upload.outputs.artifact-url }})\n'
-                + '- ffmpeg编译日志: [ffbuild/config_${{ env.DATE }}](${{ steps.upload_ffmpeg_log.outputs.artifact-url }})\n'
                 + '- 分支: ${{ env.BRANCH }}\n' 
                 + '- git hash: ${{ env.HASH }} \n' 
                 + '- 编译日期: ${{ env.DATE }}\n' 
