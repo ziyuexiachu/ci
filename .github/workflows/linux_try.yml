@@ -275,7 +275,9 @@ jobs:
           
             cd ..
             rm -rf release/linux/Release/*.a
+            rm -rf /root/install/lib/*.a
             cp -r /root/install release/linux/
+            rm /root/3rdpart/fuck_svac/sdk/fuck_svac.h
             cp -rf /root/3rdpart/fuck_svac/sdk release/linux/
           
           "
