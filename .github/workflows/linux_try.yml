@@ -215,7 +215,7 @@ jobs:
               cd 3rdpart/x265/source
               mkdir build
               cd build
-              cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DENABLE_SHARED=ON
+              cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DBUILD_SHARED_LIBS=OFF -DENABLE_SHARED=OFF -DENABLE_CLI=OFF
               make -j $(nproc) > /dev/null 2>&1
               make install > /dev/null 2>&1
               cd ../../../../
@@ -237,7 +237,7 @@ jobs:
               cd 3rdpart/ffmpeg
               PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk' \
-              --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -ldl -pthread'
+              --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib  -lstdc++ -lm -ldl -pthread'
               
               make -j $(nproc) > /dev/null 2>&1
               make install > /dev/null 2>&1
@@ -277,7 +277,8 @@ jobs:
             rm -rf release/linux/Release/*.a
             rm -rf /root/install/lib/*.a
             cp -r /root/install release/linux/
-            rm /root/3rdpart/fuck_svac/sdk/fuck_svac.h
+            rm /root/3rdpart/fuck_svac/sdk/*.h
+            rm /root/3rdpart/fuck_svac/sdk/*.a
             cp -rf /root/3rdpart/fuck_svac/sdk release/linux/
           
           "
