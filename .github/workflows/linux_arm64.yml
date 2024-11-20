@@ -108,14 +108,6 @@ jobs:
           ref: v2.3.0
           path: 3rdpart/libsrtp
 
-      - name: 下载 openssl
-        uses: actions/checkout@v2
-        with:
-          repository: openssl/openssl
-          fetch-depth: 1
-          ref: OpenSSL_1_1_1
-          path: 3rdpart/openssl
-
       - name: 下载 ffmpeg
         if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/checkout@v2
@@ -138,16 +130,10 @@ jobs:
             
             yum update -y -q
             update-ca-trust
-            yum install -y -q git wget gcc gcc-c++ nasm cmake diffutils make
+            yum install -y -q git wget gcc gcc-c++ nasm cmake diffutils make openssl-devel
           
             mkdir -p /root/install
             
-            cd 3rdpart/openssl
-            ./Configure linux-aarch64 no-shared --prefix=/root/install
-            make -j $(nproc) > /dev/null 2>&1
-            make install > /dev/null 2>&1
-            cd ../../
-          
             if [ "$ENABLE_FFMPEG" = "ON" ]; then
               cd 3rdpart/ffmpeg
               PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-shared --prefix=/root/install
