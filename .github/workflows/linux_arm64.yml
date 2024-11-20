@@ -1,0 +1,239 @@
+name: LinuxARM64
+
+on:
+  issue_comment:
+    types: [ created ]  # 监听 issue 评论创建事件
+
+env:
+  RELEASE: ON
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: 打印issue评论信息
+        run: |
+          echo "issue number :${{ github.event.issue.number }}"
+          echo "issue 作者 :${{ github.event.comment.user.login }}"
+
+      - name: 过滤issue评论
+        if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
+        run: exit 1
+
+      - name: 获取分支和ci名
+        run: |
+          #!/bin/bash
+          set -x
+          input_string="${{ github.event.comment.body }}"
+          
+          # Split into lines and trim each line
+          IFS=' ' read -r -a lines <<< "$input_string"
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+            lines[i]="$trimmed_line"
+          done
+          
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            if [ "$i" -eq 0 ]; then
+              echo "分支: ${lines[i]}"
+              echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
+            elif [ "$i" -eq 1 ]; then
+              echo "ci名: ${lines[i]}"
+              if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
+                echo "ci不匹配"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: 分支白名单
+        run: |
+          WHITELIST=("feature/transcode" "feature/1078" "feature/all" "feature/ts" "feature/codecs")
+          # 判断提交消息是否在白名单中
+          if [[ " ${WHITELIST[@]} " =~ " ${{ env.BRANCH }} " ]]; then
+            echo "分支白名单匹配成功: ${{ env.BRANCH }}"
+          else
+            echo "分支白名单匹配失败: ${{ env.BRANCH }}, 中断编译!"
+            exit 1
+          fi
+
+      - name: 设置是否开启ffmpeg的环境变量
+        run: |
+          WHITELIST=("feature/transcode" "feature/all")
+          # 判断提交消息是否在白名单中
+          if [[ " ${WHITELIST[@]} " =~ " ${{ env.BRANCH }} " ]]; then
+            echo "ENABLE_FFMPEG=ON" >> $GITHUB_ENV
+          else
+            echo "ENABLE_FFMPEG=OFF" >> $GITHUB_ENV
+          fi
+
+      - name: 下载源码
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/zlmediakit-promax
+          fetch-depth: 1
+          ref: ${{ env.BRANCH }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: .
+
+      - name: 获取git hash
+        run: |
+          echo "HASH=$(git log -1 --format='%H')" >> $GITHUB_ENV
+
+      - name: 查询是否是试用版本
+        run: |
+          if grep -q "RELEASE_VERSION" CMakeLists.txt; then
+            echo "存在试用版本开关"
+          else
+            echo "试用版本开关不存在, 中断编译!"
+            exit 1
+          fi
+
+      - name: 下载submodule源码
+        run: mv -f .gitmodules_github .gitmodules && git submodule sync && git submodule update --init
+
+      - name: 下载 SRTP
+        uses: actions/checkout@v2
+        with:
+          repository: cisco/libsrtp
+          fetch-depth: 1
+          ref: v2.3.0
+          path: 3rdpart/libsrtp
+
+      - name: 下载 openssl
+        uses: actions/checkout@v2
+        with:
+          repository: openssl/openssl
+          fetch-depth: 1
+          ref: OpenSSL_1_1_1
+          path: 3rdpart/openssl
+
+      - name: 下载 ffmpeg
+        if: env.ENABLE_FFMPEG == 'ON'
+        uses: actions/checkout@v2
+        with:
+          repository: FFmpeg/FFmpeg
+          fetch-depth: 1
+          ref: n4.4.4
+          path: 3rdpart/ffmpeg
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: 设置QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 启动 Docker 容器, 在Docker 容器中执行脚本
+        run: |
+          docker pull --platform linux/arm64 opstool/kylin:v10sp1-aarch64
+          docker run --platform linux/arm64 -e RELEASE=${{ env.RELEASE }} -e ENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -v $(pwd):/root -w /root --rm opstool/kylin:v10sp1-aarch64  sh -c "
+            #!/bin/bash
+            set -x
+            
+            yum update -y -q
+            update-ca-trust
+            yum install -y -q git wget gcc gcc-c++ nasm cmake diffutils make
+          
+            mkdir -p /root/install
+            
+            cd 3rdpart/openssl
+            ./Configure linux-aarch64 no-shared --prefix=/root/install
+            make -j $(nproc) > /dev/null 2>&1
+            make install > /dev/null 2>&1
+            cd ../../
+          
+            if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              cd 3rdpart/ffmpeg
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-shared --prefix=/root/install
+              make -j $(nproc) > /dev/null 2>&1
+              make install > /dev/null 2>&1
+              cd ../../
+            fi
+          
+            cd 3rdpart/libsrtp
+            ./configure --enable-openssl --with-openssl-dir=/root/install
+            make -j $(nproc) > /dev/null 2>&1
+            make install > /dev/null 2>&1
+            cd ../../
+          
+            mkdir -p build
+            cd build
+            PKG_CONFIG_PATH=/root/install/lib/pkgconfig cmake .. \
+            -DOPENSSL_ROOT_DIR=/root/install \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRELEASE_VERSION=${{ env.RELEASE }} \
+            -DENABLE_WEBRTC=ON \
+            -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_API=OFF
+          
+            make -j $(nproc)
+          
+            cd ..
+            rm -rf release/linux/Release/*.a
+            cp -r /root/install release/linux/
+          
+          "
+
+      - name: 设置环境变量
+        run: |
+          echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
+          echo "DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "DATE2=$(date +%s)" >> $GITHUB_ENV
+          zip -r release.zip release/linux/
+
+      - name: 打包ffbuild
+        id: upload_ffbuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}_ffbuild
+          path: 3rdpart/ffmpeg/ffbuild/config.log
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: 发布信息
+        run: |
+          release_info="- 分支: ${{ env.BRANCH }}\n"
+          release_info+="- git hash: ${{ env.HASH }}\n"
+          release_info+="- 编译日期: ${{ env.DATE }}\n"
+          release_info+="- 编译记录: [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n"
+          release_info+="- 打包ci名: ${{ github.workflow }}\n"
+          release_info+="- 开启特性: openssl/webrtc/datachannel/ffmpeg\n"
+          release_info+="- 说明: 本二进制在centos7(x64)上编译，请确保您的机器系统不低于此版本\n"
+          echo -e "$release_info" >> release.txt
+
+      - name: 创建 Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.SELF_TOKEN }}
+        with:
+          release_name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}
+          draft: false
+          tag_name:  ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}_${{ env.DATE2 }}
+          commitish: 1ac4a74335be6f1c0c444099d09296dbc548ff57
+          prerelease: false
+          owner: ziyuexiachu
+          body_path: release.txt
+          repo: zlmpro-${{ env.TAG }}
+
+      - name: 上传文件到 Release
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.SELF_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release.zip
+          asset_name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}.zip
+          asset_content_type: application/zip
+
+      - name: 输出发布的文件下载链接
+        run: |
+          echo "Release URL: ${{ steps.create_release.outputs.html_url }}"
