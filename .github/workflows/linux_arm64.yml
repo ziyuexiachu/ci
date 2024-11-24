@@ -163,7 +163,7 @@ jobs:
           
             cd ..
             rm -rf release/linux/Release/*.a
-            cp -r /root/install release/linux/
+            cp -rfP /root/install release/linux/Release
           
           "
 

@@ -208,7 +208,7 @@ jobs:
             export CFLAGS="-fPIC"
           
             cd 3rdpart/openssl
-            ./Configure linux-x86_64 no-shared --prefix=/root/install
+            ./Configure linux-x86_64 --prefix=/root/install
             make -j $(nproc) > /dev/null 2>&1
             make install > /dev/null 2>&1
             cd ../../
@@ -278,11 +278,12 @@ jobs:
             cd ..
             rm -rf release/linux/Release/*.a
             if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              rm -rf /root/3rdpart/fuck_svac/sdk/*.h
+              rm -rf /root/3rdpart/fuck_svac/sdk/*.a
               rm -rf /root/install/lib/*.a
-              #cp -r /root/install release/linux/
-              rm /root/3rdpart/fuck_svac/sdk/*.h
-              rm /root/3rdpart/fuck_svac/sdk/*.a
-              cp -rf /root/3rdpart/fuck_svac/sdk release/linux/lib
+          
+              cp -rfP /root/3rdpart/fuck_svac/sdk release/linux/Release/lib
+              cp -rfP /root/install/lib/* release/linux/Release/lib
             fi
           
           "
