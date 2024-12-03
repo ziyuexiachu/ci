@@ -229,7 +229,7 @@ jobs:
               cd 3rdpart/fuck_svac
               mkdir build
               cd build
-              cmake ..
+              cmake .. -DCMAKE_BUILD_TYPE=Debug
               make -j $(nproc)
               make install > /dev/null 2>&1
               cd ../../../
