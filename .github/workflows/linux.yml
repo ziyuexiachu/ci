@@ -231,13 +231,13 @@ jobs:
               cd 3rdpart/fuck_svac
               mkdir build
               cd build
-              cmake .. -DCMAKE_BUILD_TYPE=Debug
+              cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_SHARED=ON
               make -j $(nproc)
               make install > /dev/null 2>&1
               cd ../../../
           
               cd 3rdpart/ffmpeg
-              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-shared --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk -fPIC' \
               --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -lstdc++ -lm -ldl -pthread'
           
@@ -268,10 +268,10 @@ jobs:
             -DRELEASE_VERSION=${{ env.RELEASE }} \
             -DENABLE_WEBRTC=ON \
             -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
-            -DENABLE_TESTS=OFF \
+            -DENABLE_TESTS=ON \
             -DENABLE_API=OFF \
             -DENABLE_SVAC=${{ env.ENABLE_FFMPEG }} \
-            -DCMAKE_CXX_FLAGS='-L/root/3rdpart/fuck_svac/sdk -ldl'
+            -DCMAKE_CXX_FLAGS='-L/root/3rdpart/fuck_svac/sdk -lfuck_svac -ldl'
           
             make -j $(nproc)
           
