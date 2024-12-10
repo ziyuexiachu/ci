@@ -59,6 +59,7 @@ jobs:
           done
 
       - name: 分支白名单
+        if: false
         run: |
           WHITELIST=("feature/transcode" "feature/1078" "feature/all" "feature/ts" "feature/codecs")
           # 判断提交消息是否在白名单中
