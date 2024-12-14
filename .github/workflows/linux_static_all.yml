@@ -167,6 +167,15 @@ jobs:
           ref: 3.4
           path: 3rdpart/x265
 
+      - name: 下载 libg7221
+        if: env.ENABLE_FFMPEG == 'ON'
+        uses: actions/checkout@v2
+        with:
+          repository: Lastique/libg7221
+          fetch-depth: 1
+          ref: master
+          path: 3rdpart/libg7221
+
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
@@ -200,7 +209,7 @@ jobs:
           
             mkdir -p /root/install
           
-            yum install -y -q git wget gcc gcc-c++ make
+            yum install -y -q git wget gcc gcc-c++ make libtool automake autoconf which
           
             wget -q https://www.nasm.us/pub/nasm/releasebuilds/2.13/linux/nasm-2.13-0.fc24.x86_64.rpm
             rpm -i nasm-2.13-0.fc24.x86_64.rpm
@@ -241,8 +250,15 @@ jobs:
               make install > /dev/null 2>&1
               cd ../../../
           
+              cd 3rdpart/libg7221
+              ./autogen.sh  
+              CFLAGS=-fPIC ./configure --prefix=/root/install --enable-static --disable-shared
+              make -j $(nproc) > /dev/null 2>&1
+              make install > /dev/null 2>&1
+              cd ../../
+          
               cd 3rdpart/ffmpeg
-              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1 --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk -fPIC' \
               --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -lstdc++ -lm -ldl -pthread'
           
@@ -276,6 +292,7 @@ jobs:
             -DENABLE_TESTS=OFF \
             -DENABLE_API=OFF \
             -DENABLE_SVAC=OFF \
+            -DENABLE_G722_1=${{ env.ENABLE_FFMPEG }} \
             -DCMAKE_CXX_FLAGS='-L/root/3rdpart/fuck_svac/sdk -ldl'
           
             make -j $(nproc)
