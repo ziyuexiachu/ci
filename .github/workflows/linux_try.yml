@@ -176,6 +176,16 @@ jobs:
           ref: master
           path: 3rdpart/libg7221
 
+      - name: 下载 libg7221c
+        if: env.ENABLE_FFMPEG == 'ON'
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/g7221
+          fetch-depth: 1
+          ref: master
+          path: 3rdpart/g7221c
+          token: ${{ secrets.ACCESS_TOKEN }}
+
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
@@ -228,6 +238,14 @@ jobs:
             cd ../../
           
             if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              cd 3rdpart/g7221c
+              mkdir build
+              cd build
+              cmake .. -DCMAKE_INSTALL_PREFIX=/root/install -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+              make -j $(nproc) > /dev/null 2>&1
+              make install > /dev/null 2>&1
+              cd ../../../
+          
               cd 3rdpart/x265/source
               mkdir build
               cd build
@@ -250,15 +268,16 @@ jobs:
               make install > /dev/null 2>&1
               cd ../../../
           
-              cd 3rdpart/libg7221
-              ./autogen.sh  
-              CFLAGS=-fPIC ./configure --prefix=/root/install --enable-static --disable-shared
-              make -j $(nproc) > /dev/null 2>&1
-              make install > /dev/null 2>&1
-              cd ../../
+              # cd 3rdpart/libg7221
+              # ./autogen.sh  
+              # CFLAGS=-fPIC ./configure --prefix=/root/install --enable-static --disable-shared
+              # make -j $(nproc) > /dev/null 2>&1
+              # make install > /dev/null 2>&1
+              # cd ../../
           
               cd 3rdpart/ffmpeg
-              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1 --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
+              # --enable-g722_1
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1c --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk -fPIC' \
               --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -lstdc++ -lm -ldl -pthread'
           
