@@ -268,15 +268,16 @@ jobs:
               make install > /dev/null 2>&1
               cd ../../../
           
-              cd 3rdpart/libg7221
-              ./autogen.sh  
-              CFLAGS=-fPIC ./configure --prefix=/root/install --enable-static --disable-shared
-              make -j $(nproc) > /dev/null 2>&1
-              make install > /dev/null 2>&1
-              cd ../../
-          
+              # cd 3rdpart/libg7221
+              # ./autogen.sh  
+              # CFLAGS=-fPIC ./configure --prefix=/root/install --enable-static --disable-shared
+              # make -j $(nproc) > /dev/null 2>&1
+              # make install > /dev/null 2>&1
+              # cd ../../
+              
               cd 3rdpart/ffmpeg
-              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1 --enable-g722_1c --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
+              # --enable-g722_1
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1c --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk -fPIC' \
               --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -lstdc++ -lm -ldl -pthread'
           
