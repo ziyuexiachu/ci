@@ -181,6 +181,7 @@ jobs:
 
       - name: 打包ffbuild
         id: upload_ffbuild
+        if: env.ENABLE_FFMPEG == 'ON'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}_ffbuild
