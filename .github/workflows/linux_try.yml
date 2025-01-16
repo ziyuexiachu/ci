@@ -232,7 +232,11 @@ jobs:
             export CFLAGS="-fPIC"
           
             cd 3rdpart/openssl
-            ./Configure linux-x86_64 --prefix=/root/install
+            if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              ./Configure linux-x86_64 --prefix=/root/install
+            else
+              ./Configure no-shared linux-x86_64 --prefix=/root/install
+            fi
             make -j $(nproc) > /dev/null 2>&1
             make install > /dev/null 2>&1
             cd ../../
