@@ -186,6 +186,15 @@ jobs:
           path: 3rdpart/g7221c
           token: ${{ secrets.ACCESS_TOKEN }}
 
+      - name: 下载 libopus
+        if: env.ENABLE_FFMPEG == 'ON'
+        uses: actions/checkout@v2
+        with:
+          repository: xiph/opus
+          fetch-depth: 1
+          ref: v1.5.2
+          path: 3rdpart/opus
+
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
@@ -260,6 +269,13 @@ jobs:
               make install > /dev/null 2>&1
               cd ../../
           
+              cd 3rdpart/opus
+              ./autogen.sh
+              ./configure --prefix=/root/install --enable-static=true --enable-shared=false
+              make -j $(nproc) > /dev/null 2>&1
+              make install > /dev/null 2>&1
+              cd ../../
+          
               cd 3rdpart/fuck_svac
               mkdir build
               cd build
@@ -277,7 +293,7 @@ jobs:
               
               cd 3rdpart/ffmpeg
               # --enable-g722_1
-              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-g722_1c --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
+              PKG_CONFIG_PATH=/root/install/lib/pkgconfig ./configure --enable-libopus --enable-g722_1c --enable-gpl --enable-version3 --enable-nonfree --enable-libx264 --enable-libx265 --enable-openssl --enable-svac --prefix=/root/install \
               --extra-cflags='-I/root/install/include -I/root/3rdpart/fuck_svac/sdk -fPIC' \
               --extra-ldflags='-L/root/3rdpart/fuck_svac/sdk -L/root/install/lib -lstdc++ -lm -ldl -pthread'
           
