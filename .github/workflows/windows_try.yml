@@ -130,8 +130,10 @@ jobs:
           # 压缩 release 目录为 release.zip
           mv -Force release\windows\Release\Debug\* release\windows\Release
           Remove-Item -Path release\windows\Release\Debug -Force -Recurse
-          Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\bin\*" -Destination "release\windows\Release" -Force
-          Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\lib\*" -Destination "release\windows\Release" -Force
+          if ("${{ env.ENABLE_FFMPEG }}" -eq "ON") {
+              Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\bin\*" -Destination "release\windows\Release" -Force
+              Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\lib\*" -Destination "release\windows\Release" -Force
+          }
           Remove-Item -Path release\windows\Release\*.lib -Force
           Remove-Item -Path release\windows\Release\*.pdb -Force
 
