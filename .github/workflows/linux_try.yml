@@ -195,6 +195,15 @@ jobs:
           ref: v1.5.2
           path: 3rdpart/opus
 
+      - name: 下载nasm
+        if: env.ENABLE_FFMPEG == 'ON'
+        uses: actions/checkout@v2
+        with:
+          repository: netwide-assembler/nasm
+          fetch-depth: 1
+          ref: nasm-2.13.xx
+          path: 3rdpart/nasm
+
       - name: 启动 Docker 容器, 在Docker 容器中执行脚本
         run: |
           docker pull centos:7 
@@ -230,9 +239,6 @@ jobs:
           
             yum install -y -q git wget gcc gcc-c++ make libtool automake autoconf which
           
-            wget -q https://www.nasm.us/pub/nasm/releasebuilds/2.13/linux/nasm-2.13-0.fc24.x86_64.rpm
-            rpm -i nasm-2.13-0.fc24.x86_64.rpm
-          
             wget -q https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-x86_64.tar.gz
             tar -xzf cmake-3.26.4-linux-x86_64.tar.gz  > /dev/null 2>&1
             mv cmake-3.26.4-linux-x86_64 /usr/local/cmake-3.26.4
@@ -251,6 +257,15 @@ jobs:
             cd ../../
           
             if [ "$ENABLE_FFMPEG" = "ON" ]; then
+              # wget -q https://www.nasm.us/pub/nasm/releasebuilds/2.13/linux/nasm-2.13-0.fc24.x86_64.rpm
+              # rpm -i nasm-2.13-0.fc24.x86_64.rpm
+              cd 3rdpart/nasm
+              sh autogen.sh
+              sh configure
+              make -j $(nproc) > /dev/null 2>&1
+              make install > /dev/null 2>&1
+              cd ../../
+          
               cd 3rdpart/g7221c
               mkdir build
               cd build
