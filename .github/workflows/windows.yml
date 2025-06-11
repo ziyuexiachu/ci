@@ -103,7 +103,7 @@ jobs:
           vcpkgTriplet: x64-windows-release
           # 2024.06.01
           vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
-          vcpkgArguments: 'openssl libsrtp[openssl] ffmpeg[ffmpeg,nonfree,x264,x265,opus]'
+          vcpkgArguments: 'openssl libsrtp[openssl] ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fontconfig,fribidi]'
 
       - name: 编译
         uses: lukka/run-cmake@v3
