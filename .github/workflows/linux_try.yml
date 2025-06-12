@@ -122,6 +122,7 @@ jobs:
           path: 3rdpart/openssl
 
       - name: 下载 usrsctp
+        if: false
         uses: actions/checkout@v2
         with:
           repository: sctplab/usrsctp
@@ -321,13 +322,13 @@ jobs:
               cd ../../
             fi
           
-            cd 3rdpart/usrsctp
-            mkdir build
-            cd build
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
-            make -j $(nproc) > /dev/null 2>&1
-            make install > /dev/null 2>&1
-            cd ../../../
+            # cd 3rdpart/usrsctp
+            # mkdir build
+            # cd build
+            # cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+            # make -j $(nproc) > /dev/null 2>&1
+            # make install > /dev/null 2>&1
+            # cd ../../../
           
             cd 3rdpart/libsrtp
             ./configure --enable-openssl --with-openssl-dir=/root/install
