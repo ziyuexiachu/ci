@@ -162,6 +162,7 @@ jobs:
             -DENABLE_WEBRTC=ON \
             -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
             -DENABLE_TESTS=OFF \
+            -DDISABLE_REPORT=ON \
             -DENABLE_API=OFF
           
             make -j $(nproc)

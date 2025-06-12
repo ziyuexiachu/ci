@@ -111,7 +111,7 @@ jobs:
           useVcpkgToolchainFile: true
           cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
           buildDirectory: '${{github.workspace}}/build'
-          cmakeAppendedArgs: '-DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -DENABLE_API=OFF -DENABLE_TESTS=OFF -DRELEASE_VERSION=${{ env.RELEASE }} -DCMAKE_BUILD_TYPE=Release'
+          cmakeAppendedArgs: '-DDISABLE_REPORT=ON -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -DENABLE_API=OFF -DENABLE_TESTS=OFF -DRELEASE_VERSION=${{ env.RELEASE }} -DCMAKE_BUILD_TYPE=Release'
 
       - name: 设置环境变量
         run: |

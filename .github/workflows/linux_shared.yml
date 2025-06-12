@@ -341,6 +341,7 @@ jobs:
             -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} \
             -DENABLE_TESTS=ON \
             -DENABLE_API=OFF \
+            -DDISABLE_REPORT=ON \
             -DENABLE_SVAC=${{ env.ENABLE_FFMPEG }} \
             -DENABLE_G722_1=${{ env.ENABLE_FFMPEG }} \
             -DCMAKE_CXX_FLAGS='-L/root/3rdpart/fuck_svac/sdk -lfuck_svac -ldl'
