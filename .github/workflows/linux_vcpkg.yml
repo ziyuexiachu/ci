@@ -88,8 +88,8 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-linux-static-release
-          # 2024.06.01
-          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
           vcpkgArguments: 'openssl libsrtp[openssl]'
 
       - name: 安装 nasm
@@ -102,8 +102,8 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-linux-release
-          # 2024.06.01
-          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
           vcpkgArguments: 'openssl libsrtp[openssl] ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fontconfig,fribidi,nvcodec]'
 
       - name: 编译
@@ -123,8 +123,8 @@ jobs:
           # 如果启用了 FFMPEG，拷贝依赖库
           if [ "${ENABLE_FFMPEG}" == "ON" ]; then
             mkdir -p release/linux/Release/lib
-            cp -f ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/lib/* release/linux/Release/lib
-            cp -f ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/bin/* release/linux/Release/lib
+            cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/lib/* release/linux/Release/lib
+            # cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/bin/* release/linux/Release/lib
           fi
           # 压缩为 release.zip
           zip -r release.zip release/linux/
