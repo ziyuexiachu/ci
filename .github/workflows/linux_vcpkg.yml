@@ -92,6 +92,10 @@ jobs:
           vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
           vcpkgArguments: 'openssl libsrtp[openssl]'
 
+      - name: 安装 nasm
+        if: env.ENABLE_FFMPEG == 'ON'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
       - name: 配置 vcpkg
         uses: lukka/run-vcpkg@v7
         if: env.ENABLE_FFMPEG == 'ON'
