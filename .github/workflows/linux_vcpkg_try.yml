@@ -1,0 +1,156 @@
+name: LinuxVcpkgTry
+
+on:
+  issue_comment:
+    types: [ created ]  # 监听 issue 评论创建事件
+
+env:
+  RELEASE: OFF
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: 打印issue评论信息
+        run: |
+          echo "issue number :${{ github.event.issue.number }}"
+          echo "issue 作者 :${{ github.event.comment.user.login }}"
+
+      - name: 过滤issue评论
+        if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
+        run: exit 1
+
+      - name: 获取分支和ci名
+        run: |
+          #!/bin/bash
+          set -x
+          input_string="${{ github.event.comment.body }}"
+
+          # Split into lines and trim each line
+          IFS=' ' read -r -a lines <<< "$input_string"
+
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+            lines[i]="$trimmed_line"
+          done
+
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            if [ "$i" -eq 0 ]; then
+              echo "分支: ${lines[i]}"
+              echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
+            elif [ "$i" -eq 1 ]; then
+              echo "ci名: ${lines[i]}"
+              if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
+                echo "ci不匹配"
+                exit 1
+              fi
+            elif [ "$i" -eq 2 ]; then
+              echo "是否编译ffmpeg: ${lines[i]}"
+              echo "ENABLE_FFMPEG=${lines[i]}" >> $GITHUB_ENV
+            fi
+          done
+
+      - name: 下载源码
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/zlmediakit-promax
+          fetch-depth: 1
+          ref: ${{ env.BRANCH }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: .
+
+      - name: 获取git hash
+        run: |
+          echo "HASH=$(git log -1 --format='%H')" >> $GITHUB_ENV
+
+      - name: 查询是否是试用版本
+        run: |
+          if grep -q "RELEASE_VERSION" CMakeLists.txt; then
+            echo "存在试用版本开关"
+          else
+            echo "试用版本开关不存在, 中断编译!"
+            exit 1
+          fi
+
+      - name: 下载submodule源码
+        run: mv -f .gitmodules_github .gitmodules && git submodule sync && git submodule update --init
+
+      - name: 配置 vcpkg
+        uses: lukka/run-vcpkg@v7
+        if: env.ENABLE_FFMPEG != 'ON'
+        with:
+          vcpkgDirectory: '${{github.workspace}}/vcpkg'
+          vcpkgTriplet: x64-linux-static-release
+          # 2024.06.01
+          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          vcpkgArguments: 'openssl libsrtp[openssl]'
+
+      - name: 安装 nasm
+        if: env.ENABLE_FFMPEG == 'ON'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: 配置 vcpkg
+        uses: lukka/run-vcpkg@v7
+        if: env.ENABLE_FFMPEG == 'ON'
+        with:
+          vcpkgDirectory: '${{github.workspace}}/vcpkg'
+          vcpkgTriplet: x64-linux-release
+          # 2024.06.01
+          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          vcpkgArguments: 'openssl libsrtp[openssl] ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fontconfig,fribidi,nvcodec] aws-sdk-cpp[core,s3,transfer]'
+
+      - name: 编译
+        uses: lukka/run-cmake@v3
+        with:
+          useVcpkgToolchainFile: true
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          buildDirectory: '${{github.workspace}}/build'
+          cmakeAppendedArgs: '-DDISABLE_REPORT=ON -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -DENABLE_API=OFF -DENABLE_TESTS=OFF -DRELEASE_VERSION=${{ env.RELEASE }} -DCMAKE_BUILD_TYPE=Release'
+
+      - name: 设置环境变量
+        run: |
+          echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
+          echo "DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          
+          # 如果启用了 FFMPEG，拷贝依赖库
+          if [ "${ENABLE_FFMPEG}" == "ON" ]; then
+            mkdir -p release/linux/Release/lib
+            cp -f ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/lib/* release/linux/Release/lib
+            cp -f ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-release/bin/* release/linux/Release/lib
+          fi
+
+      - name: 打包二进制
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: issue评论
+        if: github.event_name != 'pull_request' && github.ref != 'refs/heads/feature/test'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SELF_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: 2,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '- 下载地址: [${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}](${{ steps.upload.outputs.artifact-url }})\n'
+                + '- 分支: ${{ env.BRANCH }}\n' 
+                + '- git hash: ${{ env.HASH }} \n' 
+                + '- 编译日期: ${{ env.DATE }}\n' 
+                + '- 编译记录: [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n'
+                + '- 打包ci名: ${{ github.workflow }}\n'
+                + '- 开启特性: openssl/webrtc/datachannel/ffmpeg\n'
+                + '- 说明: 本二进制在ubuntu-22.04(x64)上编译，请确保您的机器系统不低于此版本\n' 
+            })
