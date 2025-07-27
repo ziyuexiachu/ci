@@ -1,0 +1,171 @@
+name: LinuxVcpkgAsan
+
+on:
+  issue_comment:
+    types: [ created ]  # 监听 issue 评论创建事件
+
+env:
+  RELEASE: ON
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: 打印issue评论信息
+        run: |
+          echo "issue number :${{ github.event.issue.number }}"
+          echo "issue 作者 :${{ github.event.comment.user.login }}"
+
+      - name: 过滤issue评论
+        if: github.event.issue.number != 1 || github.event.comment.user.login != 'ziyuexiachu'
+        run: exit 1
+
+      - name: 获取分支和ci名
+        run: |
+          #!/bin/bash
+          set -x
+          input_string="${{ github.event.comment.body }}"
+
+          # Split into lines and trim each line
+          IFS=' ' read -r -a lines <<< "$input_string"
+
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            trimmed_line=$(echo "${lines[i]}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+            lines[i]="$trimmed_line"
+          done
+
+          for (( i=0; i<${#lines[@]}; i++ )); do
+            if [ "$i" -eq 0 ]; then
+              echo "分支: ${lines[i]}"
+              echo "BRANCH=${lines[i]}" >> $GITHUB_ENV
+            elif [ "$i" -eq 1 ]; then
+              echo "ci名: ${lines[i]}"
+              if [ "${lines[i]}" != "${{ github.workflow }}" ]; then
+                echo "ci不匹配"
+                exit 1
+              fi
+            elif [ "$i" -eq 2 ]; then
+              echo "是否编译ffmpeg: ${lines[i]}"
+              echo "ENABLE_FFMPEG=${lines[i]}" >> $GITHUB_ENV
+            fi
+          done
+
+      - name: 下载源码
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/zlmediakit-promax
+          fetch-depth: 1
+          ref: ${{ env.BRANCH }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: .
+
+      - name: 获取git hash
+        run: |
+          echo "HASH=$(git log -1 --format='%H')" >> $GITHUB_ENV
+
+      - name: 查询是否是试用版本
+        run: |
+          if grep -q "RELEASE_VERSION" CMakeLists.txt; then
+            echo "存在试用版本开关"
+          else
+            echo "试用版本开关不存在, 中断编译!"
+            exit 1
+          fi
+
+      - name: 下载submodule源码
+        run: mv -f .gitmodules_github .gitmodules && git submodule sync && git submodule update --init
+
+      - name: 配置 vcpkg
+        uses: lukka/run-vcpkg@v7
+        if: env.ENABLE_FFMPEG != 'ON'
+        with:
+          vcpkgDirectory: '${{github.workspace}}/vcpkg'
+          vcpkgTriplet: x64-linux-static-release
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
+          vcpkgArguments: 'openssl libsrtp[openssl]'
+
+      - name: 安装 nasm
+        if: env.ENABLE_FFMPEG == 'ON'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: 配置 vcpkg
+        uses: lukka/run-vcpkg@v7
+        if: env.ENABLE_FFMPEG == 'ON'
+        with:
+          vcpkgDirectory: '${{github.workspace}}/vcpkg'
+          vcpkgTriplet: x64-linux-dynamic
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
+          vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fontconfig,fribidi,drawtext,nvcodec] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
+
+      - name: 编译
+        uses: lukka/run-cmake@v3
+        with:
+          useVcpkgToolchainFile: true
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          buildDirectory: '${{github.workspace}}/build'
+          cmakeAppendedArgs: '-DENABLE_ASAN=ON -DDISABLE_REPORT=ON -DENABLE_FFMPEG=${{ env.ENABLE_FFMPEG }} -DENABLE_API=OFF -DENABLE_TESTS=OFF -DRELEASE_VERSION=${{ env.RELEASE }} -DCMAKE_BUILD_TYPE=Release'
+
+      - name: 设置环境变量
+        run: |
+          echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
+          echo "DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "DATE2=$(date +%s)" >> $GITHUB_ENV
+          
+          # 如果启用了 FFMPEG，拷贝依赖库
+          if [ "${ENABLE_FFMPEG}" == "ON" ]; then
+            mkdir -p release/linux/Release/lib
+            cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/lib/* release/linux/Release/lib
+            # cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/bin/* release/linux/Release/lib
+          fi
+          # 压缩为 release.zip
+          zip -r release.zip release/linux/
+
+      - name: 发布信息
+        run: |
+          release_info="- 分支: ${{ env.BRANCH }}\n"
+          release_info+="- git hash: ${{ env.HASH }}\n"
+          release_info+="- 编译日期: ${{ env.DATE }}\n"
+          release_info+="- 编译记录: [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n"
+          release_info+="- 打包ci名: ${{ github.workflow }}\n"
+          release_info+="- 开启特性: openssl/webrtc/datachannel/ffmpeg(${{ env.ENABLE_FFMPEG }}) \n"
+          release_info+="- 说明: 本二进制在ubuntu22.04(x64)上编译，请确保您的机器系统不低于此版本\n"
+          echo -e "$release_info" >> release.txt
+
+      - name: 创建 Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.SELF_TOKEN }}
+        with:
+          release_name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}
+          draft: false
+          tag_name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}_${{ env.DATE2 }}
+          commitish: 1ac4a74335be6f1c0c444099d09296dbc548ff57
+          prerelease: false
+          owner: ziyuexiachu
+          body_path: release.txt
+          repo: zlmpro-${{ env.TAG }}
+
+      - name: 上传文件到 Release
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.SELF_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release.zip
+          asset_name: ${{ github.workflow }}_${{ env.TAG }}_${{ env.DATE }}.zip
+          asset_content_type: application/zip
+
+      - name: 输出发布的文件下载链接
+        run: |
+          echo "Release URL: ${{ steps.create_release.outputs.html_url }}"
