@@ -238,7 +238,7 @@ jobs:
           
             mkdir -p /root/install
           
-            yum install -y -q git wget gcc gcc-c++ make libtool automake autoconf which freetype-devel fontconfig-devel fribidi-devel harfbuzz-devel
+            yum install -y -q git wget gcc gcc-c++ make libtool automake autoconf which freetype-devel fontconfig-devel fribidi-devel harfbuzz-devel jemalloc jemalloc-devel
           
             wget -q https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-x86_64.tar.gz
             tar -xzf cmake-3.26.4-linux-x86_64.tar.gz  > /dev/null 2>&1
@@ -361,7 +361,7 @@ jobs:
               mkdir -p release/linux/Release/bin
               cp -rfP /root/install/bin/* release/linux/Release/bin
           
-              LIBS=(\"libfreetype.so\" \"libfontconfig.so\" \"libfribidi.so\" \"libharfbuzz.so\" \"libpng15.so\" \"libgraphite2.so\")
+              LIBS=(\"libfreetype.so\" \"libfontconfig.so\" \"libfribidi.so\" \"libharfbuzz.so\" \"libpng15.so\" \"libgraphite2.so\" \"libjemalloc.so\")
               DEST=release/linux/Release/lib
               for lib in \${LIBS[@]}; do
                 echo \"查找并复制 \$lib ...\"
