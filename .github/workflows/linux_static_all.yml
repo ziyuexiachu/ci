@@ -345,7 +345,7 @@ jobs:
             -DENABLE_API=OFF \
             -DDISABLE_REPORT=ON \
             -DENABLE_SVAC=OFF \
-            -DENABLE_G722_1=${{ env.ENABLE_FFMPEG }} \
+            -DENABLE_G722_1=OFF \
             -DCMAKE_CXX_FLAGS='-L/root/3rdpart/fuck_svac/sdk -ldl'
           
             make -j $(nproc)
@@ -356,8 +356,8 @@ jobs:
               rm -rf /root/3rdpart/fuck_svac/sdk/*.h
               rm -rf /root/3rdpart/fuck_svac/sdk/*.a
               rm -rf /root/install/lib/*.a
-          
-              cp -rfP /root/3rdpart/fuck_svac/sdk release/linux/Release/lib
+            
+              mkdir -p release/linux/Release/lib
               cp -rfP /root/install/lib/* release/linux/Release/lib
               mkdir -p release/linux/Release/bin
               cp -rfP /root/install/bin/* release/linux/Release/bin
