@@ -91,8 +91,8 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-windows-static-release
-          # 2024.06.01
-          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
           vcpkgArguments: 'openssl libsrtp[openssl]'
 
       - name: 配置 vcpkg
@@ -101,8 +101,8 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-windows-release
-          # 2024.06.01
-          vcpkgGitCommitId: '47364fbc300756f64f7876b549d9422d5f3ec0d3'
+          # 2025.07.11
+          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
           vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,nvcodec,qsv,amf]'
 
       - name: 编译
