@@ -104,7 +104,7 @@ jobs:
           vcpkgTriplet: x64-linux-dynamic
           # 2025.07.11
           vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
-          vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fontconfig,fribidi,drawtext,nvcodec] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
+          vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,nvcodec] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
 
       - name: 编译
         uses: lukka/run-cmake@v3
