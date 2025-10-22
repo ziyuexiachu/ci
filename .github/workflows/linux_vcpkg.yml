@@ -90,7 +90,7 @@ jobs:
           vcpkgTriplet: x64-linux-static-release
           # 2025.07.11
           vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
-          vcpkgArguments: 'openssl libsrtp[openssl]'
+          vcpkgArguments: 'jemalloc openssl libsrtp[openssl] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
 
       - name: 安装 nasm
         if: env.ENABLE_FFMPEG == 'ON'
