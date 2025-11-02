@@ -10,7 +10,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    container: centos:7   # ✅ 让整个 Job 在 CentOS 7 Docker 中运行
+    container: centos:8   # ✅ 让整个 Job 在 CentOS 7 Docker 中运行
     permissions:
       contents: read
       packages: write
@@ -19,7 +19,7 @@ jobs:
       id-token: write
 
     steps:
-      - name: 打印 issue 评论信息
+      - name: 打印issue评论信息
         run: |
           echo "issue number :${{ github.event.issue.number }}"
           echo "issue 作者 :${{ github.event.comment.user.login }}"
@@ -58,60 +58,19 @@ jobs:
             fi
           done
 
-      - name: 替换 CentOS 7 Yum 源为阿里云
-        run: |
-          # Backup original repo
-          cp /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
-
-          # Replace with Aliyun mirrors
-          cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
-          [base]
-          name=CentOS-7 - Base - mirrors.aliyun.com
-          baseurl=http://mirrors.aliyun.com/centos/7/os/x86_64/
-          gpgcheck=1
-          gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
-
-          [updates]
-          name=CentOS-7 - Updates - mirrors.aliyun.com
-          baseurl=http://mirrors.aliyun.com/centos/7/updates/x86_64/
-          gpgcheck=1
-          gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
-          EOF
-
-          # Clean yum cache and rebuild
-          yum clean all
-          yum makecache
-
       - name: 安装基础工具（CentOS 7）
         run: |
           yum install -y git gcc gcc-c++ make cmake3 python3 which sudo unzip tar xz wget curl nasm
           ln -sf /usr/bin/cmake3 /usr/bin/cmake
 
-      - name: 下载源码（使用 git 命令）
-        run: |
-          set -ex
-          REPO="https://github.com/xia-chu/zlmediakit-promax.git"
-          BRANCH="${{ env.BRANCH }}"
-          TOKEN="${{ secrets.ACCESS_TOKEN }}"
-
-          # 如果是私有仓库，用 token 拉取
-          if [ -n "$TOKEN" ]; then
-            REPO="https://${TOKEN}@github.com/xia-chu/zlmediakit-promax.git"
-          fi
-
-          # 清空目录（防止 git init 出错）
-          rm -rf ./* .git || true
-
-          # 初始化仓库并拉取指定分支（只取最近一次提交）
-          git init
-          git remote add origin "$REPO"
-          git fetch --depth=1 origin "$BRANCH"
-          git checkout FETCH_HEAD
-          git submodule sync
-          git submodule update --init --recursive
-
-          echo "源码下载完成，当前分支：$(git rev-parse --abbrev-ref HEAD)"
-
+      - name: 下载源码
+        uses: actions/checkout@v2
+        with:
+          repository: xia-chu/zlmediakit-promax
+          fetch-depth: 1
+          ref: ${{ env.BRANCH }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: .
 
       - name: 获取git hash
         run: |
@@ -145,9 +104,9 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-linux-dynamic
-          # 2025.07.11
-          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
-          vcpkgArguments: 'jemalloc openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,nvcodec] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
+          # 2025.11.2
+          vcpkgGitCommitId: 'e3ed41868d5034bc608eaaa58383cd6ecdbb5ffb'
+          vcpkgArguments: 'jemalloc openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,drawtext,nvcodec,qsv,amf,aom,opencl,opengl,openh264,vpx,vulkan,vaapi] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
 
       - name: 编译
         uses: lukka/run-cmake@v3
@@ -166,7 +125,7 @@ jobs:
           if [ "${ENABLE_FFMPEG}" == "ON" ]; then
             mkdir -p release/linux/Release/lib
             cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/lib/* release/linux/Release/lib
-            # cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/bin/* release/linux/Release/lib
+            cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/tools/ffmpeg/* release/linux/Release
           fi
 
       - name: 打包二进制
