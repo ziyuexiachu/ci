@@ -94,7 +94,7 @@ jobs:
 
       - name: 安装 nasm
         if: env.ENABLE_FFMPEG == 'ON'
-        run: sudo apt-get update && sudo apt-get install -y nasm
+        run: sudo apt-get update && sudo apt-get install -y nasm autoconf autoconf-archive automake libtool
 
       - name: 配置 vcpkg
         uses: lukka/run-vcpkg@v7
