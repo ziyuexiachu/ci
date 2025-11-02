@@ -129,7 +129,7 @@ jobs:
           mv -Force release\windows\Release\Debug\* release\windows\Release
           Remove-Item -Path release\windows\Release\Debug -Force -Recurse
           if ("${{ env.ENABLE_FFMPEG }}" -eq "ON") {
-              Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\bin\*" -Destination "release\windows\Release" -Force
+              Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\tools\ffmpeg\*" -Destination "release\windows\Release" -Force
               Copy-Item -Path "${{github.workspace}}\vcpkg\installed\x64-windows-release\lib\*" -Destination "release\windows\Release" -Force
           }
           Remove-Item -Path release\windows\Release\*.lib -Force

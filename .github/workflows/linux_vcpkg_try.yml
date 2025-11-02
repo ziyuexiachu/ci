@@ -123,7 +123,7 @@ jobs:
           if [ "${ENABLE_FFMPEG}" == "ON" ]; then
             mkdir -p release/linux/Release/lib
             cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/lib/* release/linux/Release/lib
-            # cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/bin/* release/linux/Release/lib
+            cp -rf ${GITHUB_WORKSPACE}/vcpkg/installed/x64-linux-dynamic/tools/ffmpeg/* release/linux/Release
           fi
 
       - name: 打包二进制
