@@ -101,9 +101,7 @@ jobs:
         with:
           vcpkgDirectory: '${{github.workspace}}/vcpkg'
           vcpkgTriplet: x64-windows-release
-          # 2025.07.11
-          vcpkgGitCommitId: 'efcfaaf60d7ec57a159fc3110403d939bfb69729'
-          vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,nvcodec,qsv,amf] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
+          vcpkgArguments: 'openssl libsrtp[openssl] harfbuzz freetype fribidi fontconfig ffmpeg[ffmpeg,nonfree,x264,x265,opus,freetype,fribidi,fontconfig,drawtext,nvcodec,qsv,amf,aom,dav1d,opencl,opengl,openh264,vpx,vulkan] aws-crt-cpp aws-sdk-cpp[core,s3,transfer]'
 
       - name: 编译
         uses: lukka/run-cmake@v3
