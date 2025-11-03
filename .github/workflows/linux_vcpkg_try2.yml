@@ -62,27 +62,27 @@ jobs:
         run: |
           mkdir -p /etc/yum.repos.d/backup
           mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ || true
-
-          cat <<EOF > /etc/yum.repos.d/CentOS-Stream-Base.repo
+          
+          cat <<'EOF' > /etc/yum.repos.d/CentOS-Stream-Vault.repo
           [baseos]
-          name=CentOS Stream 8 - BaseOS - mirrors.aliyun.com
-          baseurl=http://mirrors.aliyun.com/centos-stream/8-stream/BaseOS/x86_64/os/
+          name=CentOS Stream 8 - BaseOS - vault.aliyun.com
+          baseurl=http://mirrors.aliyun.com/centos-vault/8-stream/BaseOS/x86_64/os/
           enabled=1
           gpgcheck=0
-
+          
           [appstream]
-          name=CentOS Stream 8 - AppStream - mirrors.aliyun.com
-          baseurl=http://mirrors.aliyun.com/centos-stream/8-stream/AppStream/x86_64/os/
+          name=CentOS Stream 8 - AppStream - vault.aliyun.com
+          baseurl=http://mirrors.aliyun.com/centos-vault/8-stream/AppStream/x86_64/os/
           enabled=1
           gpgcheck=0
-
+          
           [extras]
-          name=CentOS Stream 8 - Extras - mirrors.aliyun.com
-          baseurl=http://mirrors.aliyun.com/centos-stream/8-stream/extras/x86_64/os/
+          name=CentOS Stream 8 - Extras - vault.aliyun.com
+          baseurl=http://mirrors.aliyun.com/centos-vault/8-stream/extras/x86_64/os/
           enabled=1
           gpgcheck=0
           EOF
-
+          
           dnf clean all
           dnf install -y epel-release dnf-plugins-core
           dnf config-manager --set-enabled powertools || true
