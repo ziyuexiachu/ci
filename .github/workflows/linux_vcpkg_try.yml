@@ -119,6 +119,7 @@ jobs:
           echo "TAG=$(echo ${{ env.BRANCH }} | tr -s "/\?%*:|\"<>" "_")" >> $GITHUB_ENV  
           echo "DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
           
+          rm -rf release/linux/Release/*.a
           # 如果启用了 FFMPEG，拷贝依赖库
           if [ "${ENABLE_FFMPEG}" == "ON" ]; then
             mkdir -p release/linux/Release/lib
